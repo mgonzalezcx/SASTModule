@@ -44,13 +44,14 @@ $session.expires_at  = $(Get-Date).AddSeconds($resp.expires_in);
 $jsonSession = $session | ConvertTo-Json -Depth 100
 
 #Check to see if the sast directory exists if not create it
-$sastDirectory = "C:\.sast"
+$sastDirectory = $HOME + "\.sast"
 if (Test-Path $sastDirectory){
-	Write-Host "Folder Exists"
+	Write-Debug "Folder Exists"
 }
 else {
 	New-Item $sastDirectory -ItemType Directory
 }
 
 #store the encrypted session
+Write-Output $jsonSession
 $jsonSession | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString | Out-File "$sastDirectory/creds.cxl"

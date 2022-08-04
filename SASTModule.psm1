@@ -25,12 +25,15 @@ function Get-SASTSession {
 }
 
 function Get-CredentialFromFile{
-    $encryptedCreds = Get-Content "C:\.sast\creds.cxl" | ConvertTo-SecureString
-    $Marshal = [System.Runtime.InteropServices.Marshal]
-    $Bstr = $Marshal::SecureStringToBSTR($encryptedCreds)
-    $decrypted = $Marshal::PtrToStringAuto($Bstr)
+    $credLocation = $HOME + "/.sast/creds.cxl"
+    $encryptedCreds = Get-Content $credLocation | ConvertTo-SecureString
+    $test = ConvertFrom-SecureString -SecureString $encryptedCreds -AsPlainText
+    #Write-Output $test
+    #$Marshal = [System.Runtime.InteropServices.Marshal]
+    #$Bstr = $Marshal::SecureStringToBSTR($encryptedCreds)
+    #$decrypted = $Marshal::PtrToStringAuto($Bstr)
 
-    $psSession = $decrypted | ConvertFrom-Json
+    $psSession = $test | ConvertFrom-Json
     $session = @{}
     $psSession.PSObject.properties | Foreach {$session[$_.Name] = $_.Value}
 
@@ -48,7 +51,7 @@ function Get-SASTSessionwithAPIToken {
     &"./rest/sast/apiTokenLogin.ps1" $sast_url $refreshToken $dbg
 }
 
-function Get-ProjectDetails{
+function Get-SASTProjectDetails{
     param(
         [Parameter(Mandatory=$true)]
         [string]$projectName,
@@ -77,9 +80,9 @@ function Get-ProjectDetails{
 function Create-LocalSASTscan{
     param(
         [Parameter(Mandatory=$true)]
-        [string]$projectName,
-        [Parameter(Mandatory=$true)]
         [string]$teamName,
+        [Parameter(Mandatory=$true)]
+        [string]$projectName,
         [Parameter(Mandatory=$true)]
         [string]$zipLocation
     )
@@ -93,7 +96,33 @@ function Create-LocalSASTscan{
         
     }
     catch{
-        Write-Output "Please refresh token and try again"
+        Write-Output "Failed to find a project with team: $team and project name: $projectName"
+    }
+
+    $scanId = . "$modulePath\rest\sast\scanWithSettings.ps1" -session $session -projectId $targetProject.Id -zipLocation $zipLocation -modulePath $modulePath
+    
+    Write-Output "A scan has been created for $projectName with id = " + $scanId.id
+
+}
+
+function Create-SASTscan{
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$teamName,
+        [Parameter(Mandatory=$true)]
+        [string]$projectName
+    )
+
+    $modulePath = [System.IO.Path]::GetDirectoryName((Get-Module -ListAvailable SASTModule).path)
+
+    $session = Get-CredentialFromFile
+    
+    try{
+        $targetProject = (Get-ProjectDetails -projectName $projectName -teamName $teamName)
+        
+    }
+    catch{
+        Write-Output "Failed to find a project with team: $team and project name: $projectName"
     }
 
     $scanId = . "$modulePath\rest\sast\scanWithSettings.ps1" -session $session -projectId $targetProject.Id -zipLocation $zipLocation -modulePath $modulePath
